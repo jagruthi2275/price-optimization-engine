@@ -1,0 +1,81 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Price Optimization Engine — Docker Compose
+#
+# BEFORE running: train your models locally first:
+#   cd price-optimization-engine && bash run.sh   (trains + starts locally)
+#   # or just train without starting services:
+#   python -c "from src.model_training import run_training_pipeline; run_training_pipeline()"
+#
+# Then start all containers:
+#   docker compose up --build
+#
+# Services:
+#   api       → http://localhost:8000  (FastAPI, auto-docs at /docs)
+#   dashboard → http://localhost:8501  (Streamlit)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: price-engine-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Pre-trained models must exist before starting (see README)
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+    env_file:
+      - .env
+    environment:
+      - API_PORT=8000
+      - AUTO_TRAIN_IF_MISSING=false
+    command: >
+      uvicorn api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  # ── Streamlit Dashboard ──────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: price-engine-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+    env_file:
+      - .env
+    environment:
+      - STREAMLIT_PORT=8501
+      - API_HOST=http://api:8000
+    command: >
+      streamlit run dashboard/app.py
+      --server.port 8501
+      --server.address 0.0.0.0
+      --server.headless true
+      --browser.gatherUsageStats false
+      --theme.base dark
+      --theme.primaryColor "#63b3ed"
+      --theme.backgroundColor "#0f1117"
+      --theme.secondaryBackgroundColor "#1a1f2e"
+      --theme.textColor "#e2e8f0"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
