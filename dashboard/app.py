@@ -504,11 +504,12 @@ with tab_shap:
             X_scaled, _ = scale_features(X, fit=False)
             sample_size = min(300, len(X_scaled))
             X_sample = X_scaled[:sample_size]
-            mdl = load_model()
-            if hasattr(mdl, "feature_importances_"):
-                explainer = shap.TreeExplainer(mdl)
+            
+            if hasattr(model, "feature_importances_"):
+                explainer = shap.TreeExplainer(model)
             else:
-                explainer = shap.LinearExplainer(mdl, X_sample)
+                explainer = shap.LinearExplainer(model, X_sample)
+                
             sv = explainer.shap_values(X_sample)
             return sv, X_sample, FEATURE_COLS
 
@@ -569,11 +570,10 @@ with tab_shap:
         st.markdown("SHAP contribution for the **current sidebar inputs**:")
         from src.data_preprocessing import preprocess_single, FEATURE_COLS as FC
         X_single = preprocess_single(price, comp_price, promo, stock, season, holiday, weekday)
-        mdl = load_model()
-        if hasattr(mdl, "feature_importances_"):
-            exp_single = shap.TreeExplainer(mdl)
+        if hasattr(model, "feature_importances_"):
+            exp_single = shap.TreeExplainer(model)
         else:
-            exp_single = shap.LinearExplainer(mdl, X_sample)
+            exp_single = shap.LinearExplainer(model, X_sample)
         sv_single = exp_single.shap_values(X_single)[0]
         shap_df = pd.DataFrame({
             "Feature": FC,
